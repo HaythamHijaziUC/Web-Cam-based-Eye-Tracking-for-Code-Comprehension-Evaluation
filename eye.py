@@ -5,6 +5,7 @@ import pyautogui
 import os
 import json
 import glob
+import time
 
 from code_viewer import load_code_lines, render_code
 from gaze_logger import GazeLogger
