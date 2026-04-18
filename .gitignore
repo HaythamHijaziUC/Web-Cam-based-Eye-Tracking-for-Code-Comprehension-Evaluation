@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Data and calibration
+*.npy
+*.pkl
+reading_report_session_*.json
+
+# Environment
+.venv/
+.env

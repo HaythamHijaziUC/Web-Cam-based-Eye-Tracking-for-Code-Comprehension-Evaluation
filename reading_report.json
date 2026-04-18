@@ -1,0 +1,17 @@
+{
+  "regions": {
+    "Region 1": {
+      "fixation_time_sec": 0.567,
+      "regressions": 0
+    },
+    "Region 2": {
+      "fixation_time_sec": 22.967,
+      "regressions": 2
+    },
+    "Region 3": {
+      "fixation_time_sec": 10.433,
+      "regressions": 0
+    }
+  },
+  "most_fixated_region": "Region 2"
+}
