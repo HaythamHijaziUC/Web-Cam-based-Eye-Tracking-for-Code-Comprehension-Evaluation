@@ -5,10 +5,11 @@ A lightweight, webcam-based eye-tracking system designed for research and evalua
 ## Features
 
 - **Webcam Gaze Tracking**: No specialized hardware required.
-- **Vertical Calibration**: One-time calibration to align gaze with screen coordinates.
-- **Semantic Region Analysis**: Automatically logs fixation time, fixation counts, and regressions across predefined code regions.
-- **Heatmap Generation**: Visualizes gaze distribution over the code.
-- **Session Reports**: Generates JSON reports with quantitative reading metrics.
+- **AST-Based Semantic Mapping**: Automatically parses Python code into logical blocks (Functions, Loops, Classes) for higher-level comprehension analysis.
+- **Fixation Detection (I-DT)**: Implements a Dispersion-Threshold filter to remove gaze jitter and saccades, logging only meaningful fixations.
+- **Drift Correction**: Real-time offset adjustment during sessions (Hot-key 'C').
+- **Regression Tracking**: Automatically detects back-tracking between semantic regions based on execution flow.
+- **Multi-Language Support**: AST parsing for Python with a keyword-based fallback for Java/C++.
 
 ## Scripts
 
