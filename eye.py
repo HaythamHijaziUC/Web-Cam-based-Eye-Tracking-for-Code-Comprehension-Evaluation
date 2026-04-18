@@ -408,6 +408,8 @@ if gaze_points:
     cv2.putText(line_area, "Fixation Sequence", (20, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
 
+    seq = getattr(logger, "fixation_sequence", [])
+
     # Dynamic region order for sequence chart
     region_order = {reg["name"]: i+1 for i, reg in enumerate(semantic_pixel_regions)}
     num_regs = len(semantic_pixel_regions)
