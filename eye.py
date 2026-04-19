@@ -22,18 +22,28 @@ CALIB_FILE = "vertical_calib.npy"
 # Helper: session numbering
 # ---------------------------------------------------------
 def get_next_session_number():
-    os.makedirs("json_files", exist_ok=True)
-    files = glob.glob("json_files/reading_report_session_*.json")
+    os.makedirs("session_data", exist_ok=True)
+    files = glob.glob("session_data/reading_report_session_*.json")
     if not files:
         return 1
     nums = []
     for f in files:
         try:
-            n = int(f.split("_")[-1].split(".")[0])
-            nums.append(n)
+            # Use basename to avoid path issues
+            basename = os.path.basename(f)
+            # Extract session number from "reading_report_session_X_user_Y.json"
+            parts = basename.split("_")
+            session_part = None
+            for i, part in enumerate(parts):
+                if part == "session" and i + 1 < len(parts):
+                    session_part = parts[i + 1]
+                    break
+            if session_part:
+                n = int(session_part)
+                nums.append(n)
         except:
             pass
-    return max(nums) + 1
+    return max(nums) + 1 if nums else 1
 
 # ---------------------------------------------------------
 # Gaze computation (raw) with amplified iris + reduced head
@@ -175,14 +185,7 @@ else:
 # ---------------------------------------------------------
 # Load code and render
 # ---------------------------------------------------------
-session_num = get_next_session_number()
-session_report = {
-    "experiment_info": {
-        "session_id": session_num,
-        "user_id": 19
-    },
-    "trials": []
-}
+user_id = 19
 
 # Create a hidden Tkinter root window
 root = tk.Tk()
@@ -221,6 +224,16 @@ offset_x, offset_y = 0.0, 0.0
 abort_session = False
 
 for code_path in stimuli_files:
+    # Each file gets its own session
+    session_num = get_next_session_number()
+    session_report = {
+        "experiment_info": {
+            "session_id": session_num,
+            "user_id": user_id
+        },
+        "trials": []
+    }
+    
     print(f"Loading {code_path}...")
     lines = load_code_lines(code_path)
     code_img, line_regions = render_code(lines)
@@ -362,6 +375,7 @@ for code_path in stimuli_files:
         "code_id": os.path.basename(code_path),
         "most_fixated_region": most_fix,
         "transitions": transitions,
+        "gaze_points": gaze_points,
         "region_metrics": []
     }
     
@@ -388,9 +402,14 @@ for code_path in stimuli_files:
     # ---------------------------------------------------------
     if gaze_points:
         heat = generate_heatmap(code_img, gaze_points)
+    else:
+        # If no gaze points, create a blank heatmap
+        heat = code_img.copy()
+        cv2.putText(heat, "NO GAZE DATA RECORDED", (screen_w // 2 - 200, screen_h // 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
 
-        for reg in semantic_pixel_regions:
-            cv2.line(heat, (0, reg["y1"]), (screen_w, reg["y1"]), (255,255,255), 2)
+    for reg in semantic_pixel_regions:
+        cv2.line(heat, (0, reg["y1"]), (screen_w, reg["y1"]), (255,255,255), 2)
 
         panel_width = 600
         panel = np.zeros((heat.shape[0], panel_width, 3), dtype=np.uint8)
@@ -461,7 +480,8 @@ for code_path in stimuli_files:
 
         # Save heatmap visual to disk
         base_name = os.path.basename(code_path)
-        img_name = f"heatmap_session_{session_num}_user_19_{base_name}.png"
+        os.makedirs("session_data", exist_ok=True)
+        img_name = f"session_data/heatmap_session_{session_num}_user_{user_id}_{base_name}.png"
         cv2.imwrite(img_name, combined)
         print(f"Heatmap saved to {img_name}")
 
@@ -470,13 +490,31 @@ for code_path in stimuli_files:
         cv2.moveWindow("Heatmap + Dashboard", 100, 100)
         cv2.imshow("Heatmap + Dashboard", combined)
         
-        print("Displaying dashboard. Press any key to continue to the next file...")
-        cv2.waitKey(0)
-        cv2.destroyWindow("Heatmap + Dashboard")
+        print("Displaying dashboard. Press any key or close the window to continue to the next file...")
+        while True:
+            key = cv2.waitKey(100) & 0xFF
+            # Check if window is still open
+            if cv2.getWindowProperty("Heatmap + Dashboard", cv2.WND_PROP_VISIBLE) < 1:
+                break
+            # Check for keyboard press
+            if key != 255:
+                break
+        try:
+            cv2.destroyWindow("Heatmap + Dashboard")
+        except:
+            pass
         
         # Re-initialize fullscreen for the next file
         cv2.namedWindow(win, cv2.WND_PROP_FULLSCREEN)
         cv2.setWindowProperty(win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+    # Save this session's JSON
+    os.makedirs("session_data", exist_ok=True)
+    report_filename = f"session_data/reading_report_session_{session_num}_user_{user_id}.json"
+    with open(report_filename, "w", encoding="utf-8") as f:
+        json.dump(session_report, f, indent=2)
+
+    print(f"Session {session_num} complete! Data saved to {report_filename}")
 
     if abort_session:
         break
@@ -487,13 +525,6 @@ cv2.destroyAllWindows()
 # ---------------------------------------------------------
 # Save Session JSON & Sync CSV
 # ---------------------------------------------------------
-os.makedirs("json_files", exist_ok=True)
-report_filename = f"json_files/reading_report_session_{session_num}.json"
-with open(report_filename, "w", encoding="utf-8") as f:
-    json.dump(session_report, f, indent=2)
-
-print(f"Session complete! Data saved to {report_filename}")
-
 print("\n--- Synchronizing Master CSV Dataset ---")
 try:
     analyzer.analyze()
