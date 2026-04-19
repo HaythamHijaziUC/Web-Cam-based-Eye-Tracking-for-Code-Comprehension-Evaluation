@@ -13,6 +13,8 @@ from code_viewer import load_code_lines, render_code
 from gaze_logger import GazeLogger
 from heatmap import generate_heatmap
 from semantic_parser import parse_semantic_regions
+from cognitive_complexity import extract_full_file_complexity, compute_region_complexity
+import analyzer
 
 CALIB_FILE = "vertical_calib.npy"
 
@@ -20,7 +22,8 @@ CALIB_FILE = "vertical_calib.npy"
 # Helper: session numbering
 # ---------------------------------------------------------
 def get_next_session_number():
-    files = glob.glob("reading_report_session_*.json")
+    os.makedirs("json_files", exist_ok=True)
+    files = glob.glob("json_files/reading_report_session_*.json")
     if not files:
         return 1
     nums = []
@@ -227,6 +230,7 @@ for code_path in stimuli_files:
         code_content = f.read()
 
     ast_regions = parse_semantic_regions(code_content)
+    cc_line_scores = extract_full_file_complexity(code_content)
 
     semantic_pixel_regions = []
     for region in ast_regions:
@@ -234,9 +238,14 @@ for code_path in stimuli_files:
         scale_y = screen_h / raw_h
         y_start = int(line_regions[region["start"]][0] * scale_y)
         y_end = int(line_regions[region["end"]][1] * scale_y)
+        
+        # Calculate strict Cognitive Complexity (SonarSource) inherited for this segment
+        cc = compute_region_complexity(cc_line_scores, region["start"], region["end"])
+        
         semantic_pixel_regions.append({
             "name": region["name"], "start": region["start"],
-            "y1": max(0, y_start), "y2": min(screen_h, y_end)
+            "y1": max(0, y_start), "y2": min(screen_h, y_end),
+            "cc": cc
         })
 
     logger = GazeLogger()
@@ -358,8 +367,15 @@ for code_path in stimuli_files:
     
     # Flat format for statistical analysis (Pandas/SPSS) mapping over regions
     for r in region_seconds:
+        cc_val = 1
+        for reg in semantic_pixel_regions:
+            if reg["name"] == r:
+                cc_val = reg.get("cc", 1)
+                break
+                
         trial_data["region_metrics"].append({
             "code_region": r,
+            "static_cognitive_complexity": cc_val,
             "fixation_count": int(region_fixations.get(r, 0)),
             "regression_count": int(regressions.get(r, 0)),
             "reading_time_sec": float(f"{region_seconds.get(r, 0):.3f}")
@@ -469,10 +485,17 @@ cap.release()
 cv2.destroyAllWindows()
 
 # ---------------------------------------------------------
-# Save Session JSON
+# Save Session JSON & Sync CSV
 # ---------------------------------------------------------
-report_filename = f"reading_report_session_{session_num}.json"
+os.makedirs("json_files", exist_ok=True)
+report_filename = f"json_files/reading_report_session_{session_num}.json"
 with open(report_filename, "w", encoding="utf-8") as f:
     json.dump(session_report, f, indent=2)
 
 print(f"Session complete! Data saved to {report_filename}")
+
+print("\n--- Synchronizing Master CSV Dataset ---")
+try:
+    analyzer.analyze()
+except Exception as e:
+    print(f"Error updating CSV: {e}")

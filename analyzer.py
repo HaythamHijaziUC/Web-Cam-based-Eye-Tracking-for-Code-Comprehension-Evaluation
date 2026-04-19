@@ -17,8 +17,8 @@ def calculate_zscores(data_list, key):
             d[f"{key}_zscore"] = 0.0
 
 def analyze():
-    print("Scanning for reading_report_session_*.json files...")
-    files = glob.glob("reading_report_session_*.json")
+    print("Scanning for reading_report_session_*.json files in json_files/ directory...")
+    files = glob.glob("json_files/reading_report_session_*.json")
     if not files:
         print("No JSON session reports found!")
         return
@@ -55,6 +55,7 @@ def analyze():
                 fixations = rm.get("fixation_count", 0)
                 reading_time = rm.get("reading_time_sec", 0.0)
                 regressions = rm.get("regression_count", 0)
+                cc = rm.get("static_cognitive_complexity", 1)  # SonarSource Rules
                 
                 # Normalization
                 fix_density = fixations / lines
@@ -66,6 +67,7 @@ def analyze():
                     "code_id": code_id,
                     "code_region": region_name,
                     "region_lines": lines,
+                    "static_cognitive_complexity": cc,
                     "raw_reading_time_sec": reading_time,
                     "raw_fixations": fixations,
                     "raw_regressions": regressions,
@@ -97,14 +99,14 @@ def analyze():
                 scaled = ((raw_scores[i] - min_comp) / range_comp) * 100
             else:
                 scaled = 50.0 # Default if everything is identical
-            d["complexity_score"] = round(scaled, 1)
+            d["eye_tracking_cognitive_load"] = round(scaled, 1)
         
     # Write to CSV
     csv_file = "master_analysis.csv"
     headers = [
         "session_id", "user_id", "code_id", "code_region", "region_lines",
-        "raw_reading_time_sec", "raw_fixations", "raw_regressions",
-        "fixation_density", "normalized_time", "complexity_score"
+        "static_cognitive_complexity", "raw_reading_time_sec", "raw_fixations", "raw_regressions",
+        "fixation_density", "normalized_time", "eye_tracking_cognitive_load"
     ]
     
     with open(csv_file, "w", newline="", encoding="utf-8") as f:
