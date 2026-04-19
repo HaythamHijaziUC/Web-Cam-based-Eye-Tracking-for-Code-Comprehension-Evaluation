@@ -325,8 +325,7 @@ for code_path in stimuli_files:
                 offset_y += (0.5 - prev_ny)
                 print(f"Drift corrected. New Offsets: X={offset_x:.2f}, Y={offset_y:.2f}")
 
-    if abort_session:
-        break
+    # Proceed to summary even if aborted to show final dashboard
 
     # Summarize this trial
     region_seconds, region_fixations, regressions, transitions = logger.summarize()
@@ -434,6 +433,9 @@ for code_path in stimuli_files:
         # Re-initialize fullscreen for the next file
         cv2.namedWindow(win, cv2.WND_PROP_FULLSCREEN)
         cv2.setWindowProperty(win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+    if abort_session:
+        break
 
 cap.release()
 cv2.destroyAllWindows()
