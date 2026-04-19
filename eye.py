@@ -6,6 +6,8 @@ import os
 import json
 import glob
 import time
+import tkinter as tk
+from tkinter import filedialog
 
 from code_viewer import load_code_lines, render_code
 from gaze_logger import GazeLogger
@@ -174,17 +176,30 @@ session_num = get_next_session_number()
 session_report = {
     "experiment_info": {
         "session_id": session_num,
-        "user_id": f"participant_{session_num}"
+        "user_id": 19
     },
     "trials": []
 }
 
-stimuli_files = glob.glob("stimuli/*.py")
-if not stimuli_files:
-    print("No valid files found in stimuli/ directory! Exiting.")
+# Create a hidden Tkinter root window
+root = tk.Tk()
+root.withdraw()
+root.wm_attributes('-topmost', 1)
+
+# Open Native File Dialog
+selected_code_path = filedialog.askopenfilename(
+    title="Select Code File for Experiment",
+    filetypes=[("Source Code", "*.py *.java *.cpp *.c *.ts *.js *.txt"), ("All Files", "*.*")]
+)
+
+root.destroy()
+
+if not selected_code_path:
+    print("No file selected! Exiting.")
     exit(0)
 
-print(f"Found {len(stimuli_files)} trials.")
+stimuli_files = [selected_code_path]
+print(f"Selected file: {selected_code_path}")
 
 # Screen init
 win = "Code"
@@ -427,6 +442,12 @@ for code_path in stimuli_files:
         cv2.putText(text_area, f"Most fixated: {most_fix or 'None'}", (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
 
         combined = np.hstack([heat, panel])
+
+        # Save heatmap visual to disk
+        base_name = os.path.basename(code_path)
+        img_name = f"heatmap_session_{session_num}_user_19_{base_name}.png"
+        cv2.imwrite(img_name, combined)
+        print(f"Heatmap saved to {img_name}")
 
         cv2.destroyAllWindows()
         cv2.namedWindow("Heatmap + Dashboard", cv2.WINDOW_NORMAL)
