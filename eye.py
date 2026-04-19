@@ -235,6 +235,8 @@ t0 = time.time()
 frame_count = 0
 fps_display = 0.0
 
+tracking_started = False
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -274,31 +276,37 @@ while True:
         sx = int(nx_raw * (screen_w - 1))
         sy = int(ny_cal * (screen_h - 1))
 
-        gaze_points.append((sx, sy))
-
-        active_region = None
-        for region in semantic_pixel_regions:
-            if region["y1"] <= sy <= region["y2"]:
-                active_region = region
-                break
-        
-        logger.log_region(active_region)
-
         overlay = code_img.copy()
+
         # Draw region boundaries for debugging (researchers often need this)
         for reg in semantic_pixel_regions:
             cv2.line(overlay, (0, reg["y1"]), (screen_w, reg["y1"]), (100, 100, 100), 1)
-        
-        # FPS counter
-        frame_count += 1
-        elapsed = time.time() - t0
-        if elapsed >= 1.0:
-            fps_display = frame_count / elapsed
-            t0 = time.time()
-            frame_count = 0
-        
-        cv2.putText(overlay, f"FPS: {fps_display:.1f}", (screen_w - 150, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+        if not tracking_started:
+            cv2.putText(overlay, "STANDBY: Fixate on code and press SPACE.", 
+                        (screen_w // 2 - 350, 100),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+        else:
+            gaze_points.append((sx, sy))
+
+            active_region = None
+            for region in semantic_pixel_regions:
+                if region["y1"] <= sy <= region["y2"]:
+                    active_region = region
+                    break
+            
+            logger.log_region(active_region)
+
+            # FPS counter
+            frame_count += 1
+            elapsed = time.time() - t0
+            if elapsed >= 1.0:
+                fps_display = frame_count / elapsed
+                t0 = time.time()
+                frame_count = 0
+            
+            cv2.putText(overlay, f"FPS: {fps_display:.1f}", (screen_w - 150, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
         cv2.circle(overlay, (sx, sy), 15, (0, 0, 255), -1)
         cv2.imshow(win, overlay)
@@ -306,6 +314,15 @@ while True:
     key = cv2.waitKey(1) & 0xFF
     if key in (27, ord('q')):
         break
+    elif key == ord(' '):
+        if not tracking_started:
+            tracking_started = True
+            print("Tracking started!")
+            # Reset logger to ignore the calibration/standby phase
+            logger = GazeLogger()
+            t0 = time.time()
+            frame_count = 0
+            fps_display = 0.0
     elif key == ord('c'):
         # Drift correction: center the current raw gaze to screen center
         # This is simple calibration offset
