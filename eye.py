@@ -346,6 +346,95 @@ for code_path in stimuli_files:
     }
     session_report["trials"].append(trial_data)
 
+    # ---------------------------------------------------------
+    # Draw Heatmap Dashboard for this Trial
+    # ---------------------------------------------------------
+    if gaze_points:
+        heat = generate_heatmap(code_img, gaze_points)
+
+        for reg in semantic_pixel_regions:
+            cv2.line(heat, (0, reg["y1"]), (screen_w, reg["y1"]), (255,255,255), 2)
+
+        panel_width = 600
+        panel = np.zeros((heat.shape[0], panel_width, 3), dtype=np.uint8)
+        H, W = panel.shape[0], panel.shape[1]
+
+        bar_top, bar_bottom = 0, H // 3
+        line_top, line_bottom = bar_bottom, 2 * H // 3
+        text_top, text_bottom = line_bottom, H
+
+        # BAR CHART
+        bar_area = panel[bar_top:bar_bottom, :]
+        max_sec = max(region_seconds.values()) if region_seconds else 0.0
+        base_y = bar_bottom - bar_top - 40
+        start_x, bar_w, gap = 60, 60, 80
+
+        cv2.putText(bar_area, "Fixation Time (s)", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+
+        if max_sec > 0:
+            for i, reg in enumerate(semantic_pixel_regions):
+                if i >= 5: break
+                name = reg["name"]
+                sec = region_seconds.get(name, 0.0)
+                h_pix = int((sec / max_sec) * (base_y - 40))
+                x1 = start_x + i * (bar_w + gap)
+                x2, y1, y2 = x1 + bar_w, base_y, base_y - h_pix
+                cv2.rectangle(bar_area, (x1, y1), (x2, y2), (100+i*30, 200-i*20, 255-i*40), -1)
+                cv2.putText(bar_area, f"{sec:.1f}", (x1, y2 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
+                cv2.putText(bar_area, name.split(":")[-1].strip()[:10], (x1, base_y+20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200,200,200), 1)
+
+        # LINE CHART
+        line_area = panel[line_top:line_bottom, :]
+        cv2.putText(line_area, "Fixation Sequence", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+        seq = getattr(logger, "fixation_sequence", [])
+        region_order = {reg["name"]: i+1 for i, reg in enumerate(semantic_pixel_regions)}
+        num_regs = len(semantic_pixel_regions)
+
+        if len(seq) >= 2 and num_regs > 0:
+            h_line = line_bottom - line_top
+            x_step = W / max(1, len(seq) - 1)
+            pts = []
+            for i, meta in enumerate(seq):
+                level = region_order.get(meta["name"], 1)
+                y = int(h_line - (level - 1) * (h_line / (num_regs+1)) - h_line / (num_regs+1))
+                pts.append((int(i * x_step), y))
+            for i in range(len(pts) - 1):
+                cv2.line(line_area, pts[i], pts[i+1], (0,255,255), 2)
+            for name, level in region_order.items():
+                if level > 5: break
+                y = int(h_line - (level - 1) * (h_line / (num_regs+1)) - h_line / (num_regs+1))
+                cv2.putText(line_area, name.split(":")[-1].strip()[:5], (5, y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200,200,200), 1)
+
+        # TEXT SUMMARY
+        text_area = panel[text_top:text_bottom, :]
+        y, line_h = 40, 35
+        cv2.putText(text_area, f"File: {os.path.basename(code_path)[:15]}", (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,255), 2)
+        y += int(line_h * 1.5)
+        cv2.putText(text_area, "Regressions:", (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+        y += line_h
+        for reg in semantic_pixel_regions[:4]:
+            text = f"{reg['name'].split(':')[-1][:10]}: {regressions.get(reg['name'], 0)}"
+            cv2.putText(text_area, text, (40, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200,200,200), 2)
+            y += line_h
+
+        y += int(line_h * 0.5)
+        cv2.putText(text_area, f"Most fixated: {most_fix or 'None'}", (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+
+        combined = np.hstack([heat, panel])
+
+        cv2.destroyAllWindows()
+        cv2.namedWindow("Heatmap + Dashboard", cv2.WINDOW_NORMAL)
+        cv2.moveWindow("Heatmap + Dashboard", 100, 100)
+        cv2.imshow("Heatmap + Dashboard", combined)
+        
+        print("Displaying dashboard. Press any key to continue to the next file...")
+        cv2.waitKey(0)
+        cv2.destroyWindow("Heatmap + Dashboard")
+        
+        # Re-initialize fullscreen for the next file
+        cv2.namedWindow(win, cv2.WND_PROP_FULLSCREEN)
+        cv2.setWindowProperty(win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
 cap.release()
 cv2.destroyAllWindows()
 
