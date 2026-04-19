@@ -11,7 +11,7 @@ from tkinter import filedialog
 
 from code_viewer import load_code_lines, render_code
 from gaze_logger import GazeLogger
-from heatmap import generate_heatmap
+from heatmap import generate_heatmap, draw_fixation_clusters
 from semantic_parser import parse_semantic_regions
 from cognitive_complexity import extract_full_file_complexity, compute_region_complexity
 import analyzer
@@ -402,6 +402,12 @@ for code_path in stimuli_files:
     # ---------------------------------------------------------
     if gaze_points:
         heat = generate_heatmap(code_img, gaze_points)
+        # Add fixation clustering overlay
+        try:
+            heat, cluster_stats = draw_fixation_clusters(heat, gaze_points, eps=50, min_samples=3)
+            print(f"Fixation clusters detected: {len(cluster_stats)} regions")
+        except Exception as e:
+            print(f"Clustering visualization skipped: {e}")
     else:
         # If no gaze points, create a blank heatmap
         heat = code_img.copy()
