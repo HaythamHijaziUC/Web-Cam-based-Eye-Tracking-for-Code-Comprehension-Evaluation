@@ -238,21 +238,24 @@ for code_path in stimuli_files:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = face_mesh.process(rgb)
 
+        overlay = code_img.copy()
+        for reg in semantic_pixel_regions:
+            cv2.line(overlay, (0, reg["y1"]), (screen_w, reg["y1"]), (100, 100, 100), 1)
+
+        face_detected = False
+
         if results.multi_face_landmarks:
+            face_detected = True
             mesh = results.multi_face_landmarks[0]
             landmarks = np.array([(lm.x * w, lm.y * h) for lm in mesh.landmark])
 
             nx_raw, ny_raw = compute_raw_gaze(landmarks, w, h)
-
-            # Invert X
             nx_raw = 1.0 - nx_raw
 
-            # Calibration and Drift
             ny_cal = float(np.clip((ny_raw - calib_top) / (calib_bottom - calib_top), 0, 1))
             nx_raw = float(np.clip(nx_raw + offset_x, 0, 1))
             ny_cal = float(np.clip(ny_cal + offset_y, 0, 1))
 
-            # Temporal smoothing
             if prev_nx is None:
                 prev_nx, prev_ny = nx_raw, ny_cal
             else:
@@ -264,16 +267,9 @@ for code_path in stimuli_files:
             sx = int(nx_raw * (screen_w - 1))
             sy = int(ny_cal * (screen_h - 1))
 
-            overlay = code_img.copy()
+            cv2.circle(overlay, (sx, sy), 15, (0, 0, 255), -1)
 
-            for reg in semantic_pixel_regions:
-                cv2.line(overlay, (0, reg["y1"]), (screen_w, reg["y1"]), (100, 100, 100), 1)
-
-            if not tracking_started:
-                cv2.putText(overlay, "STANDBY: Fixate on code and press SPACE.", 
-                            (screen_w // 2 - 350, 100),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
-            else:
+            if tracking_started:
                 gaze_points.append((sx, sy))
                 active_region = None
                 for region in semantic_pixel_regions:
@@ -295,8 +291,16 @@ for code_path in stimuli_files:
                 cv2.putText(overlay, "Press 'N' for next trial", (screen_w - 250, 80),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
 
-            cv2.circle(overlay, (sx, sy), 15, (0, 0, 255), -1)
-            cv2.imshow(win, overlay)
+        if not face_detected:
+            cv2.putText(overlay, "FACE NOT DETECTED", (50, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
+
+        if not tracking_started:
+            cv2.putText(overlay, "STANDBY: Fixate on code and press SPACE.", 
+                        (screen_w // 2 - 350, 100),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+
+        cv2.imshow(win, overlay)
 
         key = cv2.waitKey(1) & 0xFF
         if key in (27, ord('q')):
