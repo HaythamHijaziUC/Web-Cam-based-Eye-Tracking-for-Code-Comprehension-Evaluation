@@ -172,7 +172,10 @@ else:
 # ---------------------------------------------------------
 session_num = get_next_session_number()
 session_report = {
-    "session": session_num,
+    "experiment_info": {
+        "session_id": session_num,
+        "user_id": f"participant_{session_num}"
+    },
     "trials": []
 }
 
@@ -332,17 +335,21 @@ for code_path in stimuli_files:
     most_fix = max(region_seconds, key=region_seconds.get) if region_seconds else None
     
     trial_data = {
-        "file": code_path,
-        "metrics": {
-            r: {
-                "fixation_time_sec": float(f"{region_seconds.get(r,0):.3f}"),
-                "fixations": int(region_fixations.get(r,0)),
-                "regressions": int(regressions.get(r,0))
-            } for r in region_seconds
-        },
+        "code_id": os.path.basename(code_path),
+        "most_fixated_region": most_fix,
         "transitions": transitions,
-        "most_fixated_region": most_fix
+        "region_metrics": []
     }
+    
+    # Flat format for statistical analysis (Pandas/SPSS) mapping over regions
+    for r in region_seconds:
+        trial_data["region_metrics"].append({
+            "code_region": r,
+            "fixation_count": int(region_fixations.get(r, 0)),
+            "regression_count": int(regressions.get(r, 0)),
+            "reading_time_sec": float(f"{region_seconds.get(r, 0):.3f}")
+        })
+        
     session_report["trials"].append(trial_data)
 
     # ---------------------------------------------------------
