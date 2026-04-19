@@ -82,10 +82,22 @@ def analyze():
     calculate_zscores(all_region_data, "raw_regressions")
     
     # Calculate Composite Complexity Score: Z_FixationDensity + (Z_Regressions * 1.5)
+    raw_scores = []
     for d in all_region_data:
-        # Standard code comprehension heuristic weight for regressions
         comp = d["fixation_density_zscore"] + (d["raw_regressions_zscore"] * 1.5)
-        d["complexity_score"] = round(comp, 3)
+        raw_scores.append(comp)
+        
+    if raw_scores:
+        min_comp = min(raw_scores)
+        max_comp = max(raw_scores)
+        range_comp = max_comp - min_comp
+        
+        for i, d in enumerate(all_region_data):
+            if range_comp > 0:
+                scaled = ((raw_scores[i] - min_comp) / range_comp) * 100
+            else:
+                scaled = 50.0 # Default if everything is identical
+            d["complexity_score"] = round(scaled, 1)
         
     # Write to CSV
     csv_file = "master_analysis.csv"
