@@ -110,6 +110,23 @@ def compute_raw_gaze(landmarks, w, h):
 
     return nx_final, ny_final
 
+
+def compute_iris_position(landmarks, w, h):
+    """Compute the normalized iris position (0-1 range) used by calibration."""
+    iris_landmarks = [470, 471, 472, 473, 474]
+    iris_pts = landmarks[iris_landmarks]
+    # Normalize to 0-1 range
+    iris_x_norm = float(np.mean(iris_pts[:, 0])) / w
+    iris_y_norm = float(np.mean(iris_pts[:, 1])) / h
+    return iris_x_norm, iris_y_norm
+
+
+def apply_calibration_matrix(iris_x, iris_y, calibration_matrix):
+    """Apply a saved calibration matrix to camera-space iris features."""
+    iris_vector = np.array([iris_x, iris_y, 1.0], dtype=float)
+    gaze_point = iris_vector @ calibration_matrix
+    return float(gaze_point[0]), float(gaze_point[1])
+
 # ---------------------------------------------------------
 # One-time vertical calibration
 # ---------------------------------------------------------
@@ -206,6 +223,7 @@ print(f"  Recalibrate: {recalibrate}")
 
 # Initialize user manager for calibration storage
 user_manager = UserManager()
+legacy_model = None
 
 # Determine if we need to calibrate
 need_calibration = is_new_user or recalibrate
@@ -254,8 +272,19 @@ else:
         print(f"✓ Calibration loaded for user {user_id}")
     
     if calib_data:
-        calibration_matrix = np.array(calib_data['calibration_matrix'])
-        calib_accuracy = calib_data['accuracy_score']
+        # Handle both new and legacy calibration formats
+        if calib_data.get('calibration_matrix') is not None:
+            calibration_matrix = np.array(calib_data['calibration_matrix'])
+        elif calib_data.get('linear_model') is not None:
+            print(f"  ⚠️ Legacy calibration format detected (imported_user)")
+            print(f"  Model type: {calib_data.get('model_type', 'unknown')}")
+            legacy_model = calib_data['linear_model']
+            calibration_matrix = None
+        else:
+            print(f"  ⚠️ Legacy calibration format detected but no usable model")
+            calibration_matrix = None
+        
+        calib_accuracy = calib_data.get('accuracy_score', 0.0)
         print(f"  Accuracy: {calib_accuracy:.1f}%")
         age = user_manager.get_calibration_age_days(user_id)
         if age:
@@ -314,7 +343,7 @@ cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FPS, 30)
 
 prev_nx, prev_ny = None, None
-alpha_smooth = 0.25
+alpha_smooth = 0.2  # Increased smoothing: 0.2 = 20% new, 80% old
 offset_x, offset_y = 0.0, 0.0
 
 abort_session = False
@@ -388,23 +417,44 @@ for code_path in stimuli_files:
             mesh = results.multi_face_landmarks[0]
             landmarks = np.array([(lm.x * w, lm.y * h) for lm in mesh.landmark])
 
-            nx_raw, ny_raw = compute_raw_gaze(landmarks, w, h)
-            nx_raw = 1.0 - nx_raw
-
-            ny_cal = float(np.clip((ny_raw - calib_top) / (calib_bottom - calib_top), 0, 1))
-            nx_raw = float(np.clip(nx_raw + offset_x, 0, 1))
-            ny_cal = float(np.clip(ny_cal + offset_y, 0, 1))
+            iris_x, iris_y = compute_iris_position(landmarks, w, h)
+            
+            # Compute head pose features for legacy model compatibility
+            face_center = landmarks.mean(axis=0)
+            head_x = face_center[0] / w
+            head_y = face_center[1] / h
+            head_x = np.clip(0.5 + (head_x - 0.5) * 2.2, 0, 1)
+            head_y = np.clip(0.5 + (head_y - 0.5) * 2.2, 0, 1)
+            
+            if calibration_matrix is not None:
+                gaze_x, gaze_y = apply_calibration_matrix(iris_x, iris_y, calibration_matrix)
+                # Calibration matrix outputs pixel coordinates directly
+                nx_raw = float(np.clip(gaze_x / max(1, screen_w - 1), 0, 1))
+                ny_raw = float(np.clip(gaze_y / max(1, screen_h - 1), 0, 1))
+                # Do NOT flip here - calibration already handles coordinate system
+            elif legacy_model is not None:
+                # Legacy model expects 4 features: [iris_x, iris_y, head_x, head_y]
+                features = np.array([[iris_x, iris_y, head_x, head_y]], dtype=float)
+                gaze_xy = legacy_model.predict(features)[0]
+                nx_raw = float(np.clip(gaze_xy[0] / max(1, screen_w - 1), 0, 1))
+                ny_raw = float(np.clip(gaze_xy[1] / max(1, screen_h - 1), 0, 1))
+            else:
+                nx_raw, ny_raw = compute_raw_gaze(landmarks, w, h)
+                nx_raw = 1.0 - nx_raw
+                ny_raw = float(np.clip((ny_raw - calib_top) / (calib_bottom - calib_top), 0, 1))
+                nx_raw = float(np.clip(nx_raw + offset_x, 0, 1))
+                ny_raw = float(np.clip(ny_raw + offset_y, 0, 1))
 
             if prev_nx is None:
-                prev_nx, prev_ny = nx_raw, ny_cal
+                prev_nx, prev_ny = nx_raw, ny_raw
             else:
                 nx = alpha_smooth * nx_raw + (1 - alpha_smooth) * prev_nx
-                ny = alpha_smooth * ny_cal + (1 - alpha_smooth) * prev_ny
+                ny = alpha_smooth * ny_raw + (1 - alpha_smooth) * prev_ny
                 prev_nx, prev_ny = nx, ny
-                nx_raw, ny_cal = nx, ny
+                nx_raw, ny_raw = nx, ny
 
             sx = int(nx_raw * (screen_w - 1))
-            sy = int(ny_cal * (screen_h - 1))
+            sy = int(ny_raw * (screen_h - 1))
 
             cv2.circle(overlay, (sx, sy), 15, (0, 0, 255), -1)
 

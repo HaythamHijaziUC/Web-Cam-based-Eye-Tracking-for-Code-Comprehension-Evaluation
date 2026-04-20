@@ -1,0 +1,5 @@
+timestamp,user_id,session_id,code_region,region_lines,fixation_count,fixation_density,regression_count,regression_rate,reading_time_sec,mean_fixation_duration_ms,static_cognitive_complexity,eye_tracking_cognitive_load_score,cognitive_load_confidence,nasa_tlx_mental_demand,nasa_tlx_physical_demand,nasa_tlx_temporal_demand,nasa_tlx_performance,nasa_tlx_effort,nasa_tlx_frustration,nasa_tlx_overall_workload,comprehension_correct,response_time_ms,calibration_accuracy,notes
+2026-04-20T23:54:41.463003,user_001,40,Module [1-12],1,3,1.0714285714285714,2,0.6666666666666666,2.8,933.3333333333334,1,47.08333333333333,0.9,0,0,0,0,0,0,0,True,2800,0,"Session 40, Task: example_code.py"
+2026-04-20T23:54:41.463977,user_001,40,Module [19-32],1,4,0.8888888888888888,1,0.25,4.5,1125.0,4,38.59375,1.0,0,0,0,0,0,0,0,True,4500,0,"Session 40, Task: example_code.py"
+2026-04-20T23:54:41.463977,user_001,40,Module [14-17],1,4,1.6214025131738954,3,0.75,2.467,616.75,1,42.34375,0.9,0,0,0,0,0,0,0,True,2467,0,"Session 40, Task: example_code.py"
+2026-04-20T23:54:41.463977,user_001,40,Module [34-35],1,1,1.0,0,0.0,0.6,600.0,1,41.40625,1.0,0,0,0,0,0,0,0,True,600,0,"Session 40, Task: example_code.py"

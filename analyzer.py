@@ -43,11 +43,11 @@ def analyze():
                 continue
 
         exp_info = data.get("experiment_info", {})
-        session_id = exp_info.get("session_id", "Unknown")
-        user_id = exp_info.get("user_id", "Unknown")
+        session_id = str(exp_info.get("session_id", "Unknown"))
+        user_id = str(exp_info.get("user_id", "Unknown"))
 
         for trial in data.get("trials", []):
-            code_id = trial.get("code_id", "Unknown")
+            code_id = str(trial.get("code_id", "Unknown"))
             gaze_points = trial.get("gaze_points", [])
             most_fixated = trial.get("most_fixated_region", "N/A")
             

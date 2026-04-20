@@ -98,12 +98,16 @@ class Calibrator:
                     mesh = results.multi_face_landmarks[0]
                     landmarks = np.array([(lm.x * w, lm.y * h) for lm in mesh.landmark])
                     
-                    # Extract iris position (approximate)
-                    iris_y = np.mean(landmarks[[470, 471, 472, 473, 474], 1])
-                    iris_x = np.mean(landmarks[[470, 471, 472, 473, 474], 0])
+                    # Extract iris position (in camera pixel coords)
+                    iris_y_px = np.mean(landmarks[[470, 471, 472, 473, 474], 1])
+                    iris_x_px = np.mean(landmarks[[470, 471, 472, 473, 474], 0])
+                    
+                    # Normalize to 0-1 range
+                    iris_x_norm = iris_x_px / w
+                    iris_y_norm = iris_y_px / h
                     
                     samples_for_target.append({
-                        'iris_pos': (iris_x, iris_y),
+                        'iris_pos': (iris_x_norm, iris_y_norm),
                         'target_pos': (target_x, target_y),
                         'target_pct': (target.x_pct, target.y_pct)
                     })
@@ -125,12 +129,14 @@ class Calibrator:
         
         # Compute calibration matrix (simple linear regression)
         X = np.array([c['mean_iris'] for c in collected_samples])  # iris positions
-        y = np.array([c['target']['get_coords']() for c in collected_samples])  # target positions
+        # Extract target positions from samples (all samples for a target have the same target position)
+        y = np.array([c['samples'][0]['target_pos'] for c in collected_samples])  # target positions
         
-        # Simple linear calibration: gaze_screen = A @ iris_raw + b
-        # Add bias term
+        # Simple linear calibration: gaze_screen = iris_raw @ calibration_matrix
+        # Add bias term: [iris_x, iris_y, 1.0]
         X_augmented = np.column_stack([X, np.ones(len(X))])
         try:
+            # lstsq solves X @ coeffs = y, returns coeffs with shape (3, 2)
             calibration_matrix, _, _, _ = np.linalg.lstsq(X_augmented, y, rcond=None)
         except Exception as e:
             logger.error(f"Calibration matrix computation failed: {e}")
