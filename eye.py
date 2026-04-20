@@ -187,6 +187,10 @@ screen_w, screen_h = pyautogui.size()
 print(f"Screen resolution: {screen_w}x{screen_h}")
 
 # Show user selection screen
+print("\n" + "="*70)
+print("LAUNCHING USER SELECTION SCREEN")
+print("="*70)
+
 user_info = show_user_selection_screen()
 if user_info is None:
     print("User selection cancelled. Exiting.")
@@ -194,31 +198,38 @@ if user_info is None:
 
 user_id = user_info['user_id']
 is_new_user = user_info['is_new_user']
-recalibrate = user_info['recalibrate']
+recalibrate = user_info.get('recalibrate', False)
 
-print(f"Selected user: {user_id}")
-print(f"Is new: {is_new_user}, Recalibrate: {recalibrate}")
+print(f"\n✓ User selected: {user_id}")
+print(f"  New user: {is_new_user}")
+print(f"  Recalibrate: {recalibrate}")
 
 # Initialize user manager for calibration storage
 user_manager = UserManager()
 
 # Determine if we need to calibrate
 need_calibration = is_new_user or recalibrate
+preloaded_calibration = user_info.get('calibration_data', None)
 
 if need_calibration:
-    print("\nStarting 9-point calibration...")
+    print("\n" + "="*70)
+    print("STARTING 9-POINT CALIBRATION")
+    print("="*70)
+    
     calibrator = Calibrator(screen_w=screen_w, screen_h=screen_h)
     calib_data = calibrator.run_calibration()
     
     if calib_data is not None:
         # Validate calibration
         is_valid, val_message = calibrator.validate_calibration(calib_data)
-        print(f"Calibration validation: {val_message}")
+        print(f"\nCalibration validation: {val_message}")
         
         if is_valid:
             # Save calibration
             user_manager.save_user_calibration(user_id, calib_data)
             print(f"✓ Calibration saved for user {user_id}")
+            print(f"  Mean error: {calib_data['mean_error_px']:.1f}px")
+            print(f"  Accuracy: {calib_data['accuracy_score']:.1f}%")
             calibration_matrix = np.array(calib_data['calibration_matrix'])
             calib_accuracy = calib_data['accuracy_score']
         else:
@@ -230,22 +241,33 @@ if need_calibration:
         calibration_matrix = np.eye(2, 3)
         calib_accuracy = 0.0
 else:
-    print("\nUsing existing calibration...")
-    # Check if calibration data was already loaded by user selection
-    if 'calibration_data' in user_info and user_info['calibration_data']:
-        calib_data = user_info['calibration_data']
-        print(f"✓ Calibration auto-loaded for user {user_id}")
+    print("\n" + "="*70)
+    print("USING STORED CALIBRATION")
+    print("="*70)
+    
+    # Use preloaded calibration from user selection
+    if preloaded_calibration:
+        calib_data = preloaded_calibration
+        print(f"✓ Calibration preloaded for user {user_id}")
     else:
         calib_data = user_manager.load_user_calibration(user_id)
+        print(f"✓ Calibration loaded for user {user_id}")
     
     if calib_data:
         calibration_matrix = np.array(calib_data['calibration_matrix'])
         calib_accuracy = calib_data['accuracy_score']
-        print(f"✓ Calibration ready (accuracy: {calib_accuracy:.1f}%)")
+        print(f"  Accuracy: {calib_accuracy:.1f}%")
+        age = user_manager.get_calibration_age_days(user_id)
+        if age:
+            print(f"  Age: {age} days old")
     else:
-        print("Could not load calibration. Using identity matrix.")
+        print("⚠️ Could not load calibration. Using identity matrix.")
         calibration_matrix = np.eye(2, 3)
         calib_accuracy = 0.0
+
+# Keep old vertical calibration values for backward compatibility
+calib_top = 0.0
+calib_bottom = 1.0
 
 # Keep old vertical calibration values for backward compatibility
 calib_top = 0.0

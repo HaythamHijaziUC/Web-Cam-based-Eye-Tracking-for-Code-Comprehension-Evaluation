@@ -86,233 +86,259 @@ class UserManager:
 def show_user_selection_screen() -> Optional[Dict[str, Any]]:
     """
     Display user selection/creation screen on app launch.
-    LARGE UI with auto-generated user IDs and calibration loading.
+    PROPER LARGE UI with working buttons and calibration flow.
     
     Returns:
-        Dictionary with 'user_id', 'is_new_user', 'recalibrate', or None if cancelled
+        Dictionary with 'user_id', 'is_new_user', 'recalibrate', 'calibration_data', or None if cancelled
     """
     root = tk.Tk()
     root.title("Eye-Tracking System - User Selection")
-    root.geometry("900x600")
-    root.resizable(False, False)
     
-    # Center on screen
-    root.update_idletasks()
-    x = (root.winfo_screenwidth() // 2) - (root.winfo_width() // 2)
-    y = (root.winfo_screenheight() // 2) - (root.winfo_height() // 2)
-    root.geometry(f"+{max(0, x)}+{max(0, y)}")
+    # Get screen size and maximize window
+    screen_w = root.winfo_screenwidth()
+    screen_h = root.winfo_screenheight()
+    root.geometry(f"{screen_w}x{screen_h}")
+    root.resizable(True, True)
     
     result = {"user_id": None, "is_new_user": False, "recalibrate": False}
     manager = UserManager()
     
+    # Get existing users upfront
+    existing_users = manager.get_existing_users()
+    
     # ========================
-    # NEW USER DIALOG
+    # MAIN SCREEN LAYOUT
     # ========================
-    def on_new_user():
-        """Create new user with auto-generated ID"""
-        dialog = tk.Toplevel(root)
-        dialog.title("New User - Auto Generated ID")
-        dialog.geometry("600x300")
-        dialog.resizable(False, False)
-        dialog.grab_set()
+    
+    # Title bar
+    title_frame = tk.Frame(root, bg="#1565C0")
+    title_frame.pack(fill=tk.X, padx=0, pady=0)
+    
+    tk.Label(title_frame, text="👁️ Eye-Tracking System - User Selection", 
+            font=("Arial", 32, "bold"), bg="#1565C0", fg="white").pack(pady=30)
+    
+    # Subtitle
+    tk.Label(root, text="Select whether you are a new user or returning user", 
+            font=("Arial", 18), fg="#333").pack(pady=20)
+    
+    # Main content frame
+    content_frame = tk.Frame(root)
+    content_frame.pack(pady=40, expand=True)
+    
+    # Two columns for buttons
+    left_frame = tk.Frame(content_frame)
+    left_frame.pack(side=tk.LEFT, padx=60, expand=True)
+    
+    right_frame = tk.Frame(content_frame)
+    right_frame.pack(side=tk.RIGHT, padx=60, expand=True)
+    
+    # ========================
+    # NEW USER FLOW
+    # ========================
+    def on_new_user_click():
+        """Create new user with auto-generated ID and proceed to calibration"""
+        # Hide main window
+        root.withdraw()
         
         # Auto-generate ID
         auto_id = manager.get_next_user_id()
         
-        tk.Label(dialog, text="New User", font=("Arial", 20, "bold")).pack(pady=20)
+        # Create new window for confirmation
+        dialog = tk.Toplevel(root)
+        dialog.title("New User")
+        dialog.geometry("700x400")
+        dialog.resizable(False, False)
+        
+        # Center dialog
+        dialog.update_idletasks()
+        x = (screen_w // 2) - (dialog.winfo_width() // 2)
+        y = (screen_h // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        # Content
+        tk.Label(dialog, text="Welcome, New User!", font=("Arial", 24, "bold")).pack(pady=20)
         
         tk.Label(dialog, text="Your User ID (auto-generated):", font=("Arial", 16)).pack(pady=10)
         
-        # Display the auto-generated ID in large text
-        id_frame = tk.Frame(dialog, bg="#E3F2FD", relief=tk.SUNKEN, bd=2)
-        id_frame.pack(pady=15, padx=30, fill=tk.BOTH, expand=True)
+        # ID display box
+        id_frame = tk.Frame(dialog, bg="#E3F2FD", relief=tk.SUNKEN, bd=3)
+        id_frame.pack(pady=20, padx=30, fill=tk.BOTH, expand=True)
         
-        tk.Label(id_frame, text=auto_id, font=("Arial", 32, "bold"), bg="#E3F2FD", fg="#1976D2").pack(pady=20)
+        tk.Label(id_frame, text=auto_id, font=("Arial", 40, "bold"), 
+                bg="#E3F2FD", fg="#1976D2").pack(pady=20)
         
-        info_label = tk.Label(dialog, text="Remember this ID for future sessions", font=("Arial", 12), fg="gray")
-        info_label.pack(pady=10)
+        tk.Label(dialog, text="This ID will identify you in future sessions\nNext: You will complete calibration", 
+                font=("Arial", 13), fg="#666", justify=tk.CENTER).pack(pady=10)
         
-        def confirm():
-            """Confirm new user creation"""
+        def confirm_new_user():
+            """Proceed to calibration"""
             result["user_id"] = auto_id
             result["is_new_user"] = True
             result["recalibrate"] = False
             dialog.destroy()
-            root.quit()
+            root.destroy()
         
-        def cancel():
-            """Cancel new user creation"""
+        def cancel_new_user():
+            """Go back"""
             dialog.destroy()
+            root.deiconify()
         
         button_frame = tk.Frame(dialog)
         button_frame.pack(pady=20)
         
-        tk.Button(button_frame, text="Confirm", command=confirm, 
+        tk.Button(button_frame, text="Continue to Calibration", command=confirm_new_user, 
                  bg="#4CAF50", fg="white", font=("Arial", 14, "bold"),
-                 width=15, height=2).pack(side=tk.LEFT, padx=10)
+                 width=20, height=2).pack(side=tk.LEFT, padx=10)
         
-        tk.Button(button_frame, text="Cancel", command=cancel,
+        tk.Button(button_frame, text="Back", command=cancel_new_user,
                  bg="#9E9E9E", fg="white", font=("Arial", 14, "bold"),
-                 width=15, height=2).pack(side=tk.LEFT, padx=10)
+                 width=20, height=2).pack(side=tk.LEFT, padx=10)
     
     # ========================
-    # EXISTING USER DIALOG
+    # EXISTING USER FLOW
     # ========================
-    def on_existing_user():
-        """Select existing user and load calibration"""
-        users = manager.get_existing_users()
-        
-        if not users:
-            messagebox.showinfo("Info", "No existing users found\n\nCreate a new user first.", parent=root)
+    def on_existing_user_click():
+        """Select existing user"""
+        if not existing_users:
+            messagebox.showwarning("No Users", "No existing users found. Please create a new user first.")
             return
         
+        # Hide main window
+        root.withdraw()
+        
+        # Create selection window
         dialog = tk.Toplevel(root)
         dialog.title("Select Existing User")
-        dialog.geometry("700x500")
+        dialog.geometry("700x600")
         dialog.resizable(False, False)
-        dialog.grab_set()
         
-        tk.Label(dialog, text="Select Your User ID", font=("Arial", 18, "bold")).pack(pady=15)
+        # Center dialog
+        dialog.update_idletasks()
+        x = (screen_w // 2) - (dialog.winfo_width() // 2)
+        y = (screen_h // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        tk.Label(dialog, text="Welcome Back!", font=("Arial", 24, "bold")).pack(pady=15)
+        tk.Label(dialog, text="Select Your User ID", font=("Arial", 16)).pack(pady=5)
         
         # Listbox with scrollbar
-        frame = tk.Frame(dialog, relief=tk.SUNKEN, bd=2)
-        frame.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        list_frame = tk.Frame(dialog, relief=tk.SUNKEN, bd=2)
+        list_frame.pack(pady=15, padx=20, fill=tk.BOTH, expand=True)
         
-        listbox = tk.Listbox(frame, font=("Arial", 14), height=10, width=40)
-        scrollbar = tk.Scrollbar(frame, command=listbox.yview)
+        listbox = tk.Listbox(list_frame, font=("Arial", 14), height=12, width=50)
+        scrollbar = tk.Scrollbar(list_frame, command=listbox.yview)
         listbox.config(yscrollcommand=scrollbar.set)
         listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Populate with user info
-        for user_id in users:
+        for user_id in existing_users:
             age = manager.get_calibration_age_days(user_id)
             if age is not None:
                 if age > 7:
-                    display_text = f"{user_id}  ({age}d old) ⚠️ STALE"
+                    display_text = f"{user_id}  ({age} days old) ⚠️ STALE - RECALIBRATE RECOMMENDED"
                 else:
-                    display_text = f"{user_id}  ({age}d old)"
+                    display_text = f"{user_id}  ({age} days old)"
             else:
-                display_text = f"{user_id}  (age unknown)"
+                display_text = f"{user_id}  (calibration age unknown)"
             listbox.insert(tk.END, display_text)
         
-        # Auto-select first user
+        # Auto-select first
         listbox.selection_set(0)
         listbox.see(0)
         
-        def select():
-            """Select user and load calibration"""
+        def select_user():
+            """Confirm user selection"""
             if not listbox.curselection():
-                messagebox.showerror("Error", "Please select a user", parent=dialog)
+                messagebox.showerror("Error", "Please select a user")
                 return
             
             selected_idx = listbox.curselection()[0]
-            selected_user = users[selected_idx]
+            selected_user = existing_users[selected_idx]
             
-            # Load calibration for selected user
+            # Load calibration
             calib_data = manager.load_user_calibration(selected_user)
             
+            result["user_id"] = selected_user
+            result["is_new_user"] = False
+            
             if calib_data:
+                result["calibration_data"] = calib_data
                 print(f"✓ Loaded calibration for user {selected_user}")
-                result["user_id"] = selected_user
-                result["is_new_user"] = False
-                result["calibration_data"] = calib_data  # Store loaded calibration
-                
-                # Check age and ask for recalibration
-                age = manager.get_calibration_age_days(selected_user)
-                if age and age > 7:
-                    response = messagebox.askyesno(
-                        "Calibration Stale",
-                        f"Calibration is {age} days old.\n\nRecalibrate now?",
-                        parent=dialog
-                    )
-                    result["recalibrate"] = response
-            else:
-                # User exists but no calibration loaded - require new calibration
-                print(f"⚠️ Could not load calibration for user {selected_user}")
-                result["user_id"] = selected_user
-                result["is_new_user"] = False
-                result["recalibrate"] = True
+            
+            # Check if recalibration needed
+            age = manager.get_calibration_age_days(selected_user)
+            if age and age > 7:
+                response = messagebox.askyesno(
+                    "Calibration Stale",
+                    f"Your calibration is {age} days old.\n\nWould you like to recalibrate?\n(Recommended for best accuracy)",
+                    parent=dialog
+                )
+                result["recalibrate"] = response
             
             dialog.destroy()
-            root.quit()
+            root.destroy()
+        
+        def back():
+            """Go back"""
+            dialog.destroy()
+            root.deiconify()
         
         button_frame = tk.Frame(dialog)
         button_frame.pack(pady=15)
         
-        tk.Button(button_frame, text="Select", command=select,
+        tk.Button(button_frame, text="Select This User", command=select_user,
                  bg="#2196F3", fg="white", font=("Arial", 14, "bold"),
-                 width=20, height=2).pack(side=tk.LEFT, padx=10)
+                 width=22, height=2).pack(side=tk.LEFT, padx=10)
         
-        tk.Button(button_frame, text="Cancel", command=dialog.destroy,
+        tk.Button(button_frame, text="Back", command=back,
                  bg="#9E9E9E", fg="white", font=("Arial", 14, "bold"),
-                 width=20, height=2).pack(side=tk.LEFT, padx=10)
+                 width=22, height=2).pack(side=tk.LEFT, padx=10)
     
     # ========================
-    # MAIN SCREEN
+    # LEFT BUTTON: NEW USER
     # ========================
+    tk.Label(left_frame, text="First Time?", font=("Arial", 18, "bold"), fg="#4CAF50").pack(pady=10)
     
-    # Title
-    title_frame = tk.Frame(root, bg="#1565C0")
-    title_frame.pack(fill=tk.X)
-    
-    tk.Label(title_frame, text="👁️ Eye-Tracking System", 
-            font=("Arial", 28, "bold"), bg="#1565C0", fg="white").pack(pady=20)
-    
-    # Subtitle
-    tk.Label(root, text="Welcome to the Eye-Tracking Experiment", 
-            font=("Arial", 16), fg="#555").pack(pady=10)
-    
-    # Button frame
-    button_frame = tk.Frame(root)
-    button_frame.pack(pady=60, expand=True)
-    
-    # NEW USER BUTTON
     new_user_btn = tk.Button(
-        button_frame, 
-        text="👤 New User",
-        command=on_new_user,
-        font=("Arial", 18, "bold"),
+        left_frame, 
+        text="➕\nNEW USER\n\nGet auto-generated ID\nand complete calibration",
+        command=on_new_user_click,
+        font=("Arial", 16, "bold"),
         bg="#4CAF50", 
         fg="white",
-        width=25, 
-        height=4,
+        width=30, 
+        height=8,
         relief=tk.RAISED,
-        bd=3
+        bd=4,
+        wraplength=250
     )
-    new_user_btn.pack(pady=20)
+    new_user_btn.pack(pady=20, fill=tk.BOTH, expand=True)
     
-    # EXISTING USER BUTTON
+    # ========================
+    # RIGHT BUTTON: EXISTING USER
+    # ========================
+    tk.Label(right_frame, text="Returning?", font=("Arial", 18, "bold"), fg="#2196F3").pack(pady=10)
+    
     existing_user_btn = tk.Button(
-        button_frame,
-        text="🔄 Returning User",
-        command=on_existing_user,
-        font=("Arial", 18, "bold"),
+        right_frame,
+        text="🔄\nRETURNING USER\n\nSelect your ID\nand load calibration",
+        command=on_existing_user_click,
+        font=("Arial", 16, "bold"),
         bg="#2196F3",
         fg="white",
-        width=25,
-        height=4,
+        width=30,
+        height=8,
         relief=tk.RAISED,
-        bd=3
+        bd=4,
+        wraplength=250
     )
-    existing_user_btn.pack(pady=20)
+    existing_user_btn.pack(pady=20, fill=tk.BOTH, expand=True)
     
-    # Info text
-    info_frame = tk.Frame(root, bg="#F5F5F5")
-    info_frame.pack(fill=tk.X, side=tk.BOTTOM)
-    
-    tk.Label(info_frame, 
-            text="New users: Get a unique auto-generated ID  |  Returning users: Select your ID to load your calibration",
-            font=("Arial", 11), 
-            bg="#F5F5F5", 
-            fg="#666",
-            justify=tk.CENTER).pack(pady=15)
-    
-    # Run dialog
+    # Run window
     root.mainloop()
-    root.destroy()
     
-    # Return None if cancelled (user_id is None)
+    # Return result
     if result["user_id"] is None:
         return None
     
