@@ -1,12 +1,20 @@
 # Web-Cam based Eye-Tracking for Code Comprehension Evaluation
 
+![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue.svg)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-Enabled-green.svg)
+
+## Research Context
+
+This tool is part of the BRAIN project at CISUC, University of Coimbra ([BrAIn project page](https://www.cisuc.uc.pt/en/projects/BrAIn)). It investigates whether gaze behaviour captured with a standard webcam can measure cognitive load during code reading without specialist eye-tracking hardware. The platform is also designed to study whether AI-generated code is truly readable by humans, not only functionally correct, addressing a gap not covered by pass@k and HumanEval. This is active research and the project is open for collaboration.
+
+## Overview
+
 Webcam-based eye tracking for code comprehension experiments, combining:
 - gaze and fixation logging,
 - semantic code-region parsing,
 - static cognitive complexity, and
 - workload estimation/export for analysis workflows.
-
-## Overview
 
 The current pipeline in `main` is:
 1. User selection (`new` vs `returning`) and calibration loading.
@@ -69,6 +77,10 @@ cd Web-Cam-based-Eye-Tracking-for-Code-Comprehension-Evaluation
 pip install -r requirements.txt
 ```
 
+> Note: run_eyetracker.bat contains a machine-specific interpreter path.
+> Update C:\Users\hayth\anaconda3\envs\eyetracker\python.exe to match
+> your local environment before use.
+
 Dependencies (`requirements.txt`):
 - `opencv-python`
 - `mediapipe`
@@ -103,6 +115,22 @@ On launch:
 python analyzer.py
 ```
 
+### Notes and Known Behavior
+
+- Returning-user flow currently auto-selects the first detected user in `calibrations/`.
+- `run_eyetracker.bat` uses a machine-specific interpreter path:
+  `C:\Users\hayth\anaconda3\envs\eyetracker\python.exe`.
+  Update it if your local environment path is different.
+- `analyzer.py` recomputes `master_analysis.csv` from all available `session_data` JSON files.
+
+### Quick Checks
+
+```bash
+python test_user_selection.py
+python test_enhancements.py
+python test_clustering.py
+```
+
 ## Outputs
 
 - Session report JSON:
@@ -114,22 +142,39 @@ python analyzer.py
 - Aggregated master CSV:
   `master_analysis.csv`
 
-## Notes and Known Behavior
+## Contributing
 
-- Returning-user flow currently auto-selects the first detected user in `calibrations/`.
-- `run_eyetracker.bat` uses a machine-specific interpreter path:
-  `C:\Users\hayth\anaconda3\envs\eyetracker\python.exe`.
-  Update it if your local environment path is different.
-- `analyzer.py` recomputes `master_analysis.csv` from all available `session_data` JSON files.
+Contributions are welcome in the following areas:
+- Code stimuli: additional .py, .java, .cpp, .ts, .js snippet files 
+  for use as reading stimuli
+- AI-generated code samples: paired human-written vs AI-generated 
+  versions of the same function, for comparative studies
+- Calibration improvements: better accuracy or faster calibration flows
+- Cognitive load models: alternative weighting schemes in 
+  src/metrics/weights.json
+- Dataset contributions: anonymised session JSON exports 
+  (session_data/ format) from your own participants
+- Language support: extending semantic_parser.py to new languages
 
-## Quick Checks
+Please open a GitHub Issue before submitting a pull request so we can 
+align on scope. See CONTRIBUTING.md for full guidelines.
 
-```bash
-python test_user_selection.py
-python test_enhancements.py
-python test_clustering.py
-```
+## Citation
+
+If you use this tool in your research, please cite:
+
+Hijazi, H. (2025). Web-Cam based Eye-Tracking for Code Comprehension 
+Evaluation. GitHub repository.
+https://github.com/HaythamHijaziUC/Web-Cam-based-Eye-Tracking-for-Code-Comprehension-Evaluation
+
+A paper documenting the methodology and findings is in preparation.
+Contact: haitham@paluniv.edu.ps
 
 ## License
 
-Private / Research Use
+This project is licensed under the MIT License. See the LICENSE file 
+for details.
+
+## Acknowledgements
+
+Developed at in collaboration between Palestine Ahliya University with CISUC, University of Coimbra, Portugal. Supported by the BRAIN research project.
