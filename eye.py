@@ -269,14 +269,20 @@ else:
 calib_top = 0.0
 calib_bottom = 1.0
 
-# Keep old vertical calibration values for backward compatibility
-calib_top = 0.0
-calib_bottom = 1.0
+print("\n" + "="*70)
+print("CALIBRATION COMPLETE - READY FOR TASK")
+print("="*70)
+print(f"✓ User ID: {user_id}")
+print(f"✓ Calibration Accuracy: {calib_accuracy:.1f}%")
+print(f"\nProceeding to task selection...")
+print("="*70)
 
 # Create a hidden Tkinter root window
 root = tk.Tk()
 root.withdraw()
 root.wm_attributes('-topmost', 1)
+
+print("\n📂 Opening file browser to select code file...")
 
 # Open Native File Dialog
 selected_code_path = filedialog.askopenfilename(
@@ -287,11 +293,15 @@ selected_code_path = filedialog.askopenfilename(
 root.destroy()
 
 if not selected_code_path:
-    print("No file selected! Exiting.")
+    print("\n⚠️  No file selected! Exiting.")
     exit(0)
 
+print(f"\n✓ File selected: {selected_code_path}")
+print(f"\n" + "="*70)
+print("STARTING EYE TRACKING TASK")
+print("="*70)
+
 stimuli_files = [selected_code_path]
-print(f"Selected file: {selected_code_path}")
 
 # Screen init
 win = "Code"
@@ -320,7 +330,10 @@ for code_path in stimuli_files:
         "trials": []
     }
     
-    print(f"Loading {code_path}...")
+    print(f"\n" + "►"*35)
+    print(f"Starting session {session_num}")
+    print(f"Code file: {code_path}")
+    print(f"►" * 35)
     lines = load_code_lines(code_path)
     code_img, line_regions = render_code(lines)
     code_img = cv2.resize(code_img, (screen_w, screen_h))
@@ -724,6 +737,14 @@ for code_path in stimuli_files:
 
     if abort_session:
         break
+
+print("\n" + "="*70)
+print("EYE TRACKING TASK COMPLETE!")
+print("="*70)
+print(f"✓ Session {session_num} saved with user {user_id}")
+print(f"✓ Data files are in: session_data/")
+print(f"✓ Validation CSV is in: exports/")
+print("="*70 + "\n")
 
 cap.release()
 cv2.destroyAllWindows()

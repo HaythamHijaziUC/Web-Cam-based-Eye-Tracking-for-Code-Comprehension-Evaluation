@@ -1,2 +1,2 @@
 timestamp,user_id,session_id,code_region,region_lines,fixation_count,fixation_density,regression_count,regression_rate,reading_time_sec,mean_fixation_duration_ms,static_cognitive_complexity,eye_tracking_cognitive_load_score,cognitive_load_confidence,nasa_tlx_mental_demand,nasa_tlx_physical_demand,nasa_tlx_temporal_demand,nasa_tlx_performance,nasa_tlx_effort,nasa_tlx_frustration,nasa_tlx_overall_workload,comprehension_correct,response_time_ms,calibration_accuracy,notes
-2026-04-20T14:22:28.835189,test_user_001,1,function_def [1-15],15,12,0.8,3,0.25,5.2,433,5,72.3,0.95,75,,,,,,68.3,True,4200,88.5,Test session
+2026-04-20T14:27:49.200451,test_user_001,1,function_def [1-15],15,12,0.8,3,0.25,5.2,433,5,72.3,0.95,75,,,,,,68.3,True,4200,88.5,Test session
