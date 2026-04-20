@@ -8,6 +8,8 @@ import glob
 import time
 import tkinter as tk
 from tkinter import filedialog
+from datetime import datetime
+from pathlib import Path
 
 from code_viewer import load_code_lines, render_code
 from gaze_logger import GazeLogger
@@ -15,6 +17,13 @@ from heatmap import generate_heatmap, draw_fixation_clusters
 from semantic_parser import parse_semantic_regions
 from cognitive_complexity import extract_full_file_complexity, compute_region_complexity
 import analyzer
+
+# Import new modules
+from src.ui.user_selection import show_user_selection_screen, UserManager
+from src.calibration.calibrator import Calibrator
+from src.metrics.cognitive_load import CognitiveLoadCalculator
+from src.ui.nasa_tlx_survey import NasaTlxSurvey
+from src.validation.data_exporter import DataExporter
 
 CALIB_FILE = "vertical_calib.npy"
 
@@ -172,20 +181,75 @@ def run_vertical_calibration(screen_w, screen_h):
     return calib_top, calib_bottom
 
 # ---------------------------------------------------------
-# Load or run calibration
+# NEW: User Selection and Calibration System
 # ---------------------------------------------------------
 screen_w, screen_h = pyautogui.size()
+print(f"Screen resolution: {screen_w}x{screen_h}")
 
-if os.path.exists(CALIB_FILE):
-    calib_vals = np.load(CALIB_FILE)
-    calib_top, calib_bottom = float(calib_vals[0]), float(calib_vals[1])
+# Show user selection screen
+user_info = show_user_selection_screen()
+if user_info is None:
+    print("User selection cancelled. Exiting.")
+    exit(0)
+
+user_id = user_info['user_id']
+is_new_user = user_info['is_new_user']
+recalibrate = user_info['recalibrate']
+
+print(f"Selected user: {user_id}")
+print(f"Is new: {is_new_user}, Recalibrate: {recalibrate}")
+
+# Initialize user manager for calibration storage
+user_manager = UserManager()
+
+# Determine if we need to calibrate
+need_calibration = is_new_user or recalibrate
+
+if need_calibration:
+    print("\nStarting 9-point calibration...")
+    calibrator = Calibrator(screen_w=screen_w, screen_h=screen_h)
+    calib_data = calibrator.run_calibration()
+    
+    if calib_data is not None:
+        # Validate calibration
+        is_valid, val_message = calibrator.validate_calibration(calib_data)
+        print(f"Calibration validation: {val_message}")
+        
+        if is_valid:
+            # Save calibration
+            user_manager.save_user_calibration(user_id, calib_data)
+            print(f"✓ Calibration saved for user {user_id}")
+            calibration_matrix = np.array(calib_data['calibration_matrix'])
+            calib_accuracy = calib_data['accuracy_score']
+        else:
+            print("✗ Calibration validation failed. Using identity matrix.")
+            calibration_matrix = np.eye(2, 3)
+            calib_accuracy = 0.0
+    else:
+        print("Calibration cancelled.")
+        calibration_matrix = np.eye(2, 3)
+        calib_accuracy = 0.0
 else:
-    calib_top, calib_bottom = run_vertical_calibration(screen_w, screen_h)
+    print("\nUsing existing calibration...")
+    # Check if calibration data was already loaded by user selection
+    if 'calibration_data' in user_info and user_info['calibration_data']:
+        calib_data = user_info['calibration_data']
+        print(f"✓ Calibration auto-loaded for user {user_id}")
+    else:
+        calib_data = user_manager.load_user_calibration(user_id)
+    
+    if calib_data:
+        calibration_matrix = np.array(calib_data['calibration_matrix'])
+        calib_accuracy = calib_data['accuracy_score']
+        print(f"✓ Calibration ready (accuracy: {calib_accuracy:.1f}%)")
+    else:
+        print("Could not load calibration. Using identity matrix.")
+        calibration_matrix = np.eye(2, 3)
+        calib_accuracy = 0.0
 
-# ---------------------------------------------------------
-# Load code and render
-# ---------------------------------------------------------
-user_id = 19
+# Keep old vertical calibration values for backward compatibility
+calib_top = 0.0
+calib_bottom = 1.0
 
 # Create a hidden Tkinter root window
 root = tk.Tk()
@@ -521,6 +585,120 @@ for code_path in stimuli_files:
         json.dump(session_report, f, indent=2)
 
     print(f"Session {session_num} complete! Data saved to {report_filename}")
+
+    # ---------------------------------------------------------
+    # NEW: NASA-TLX Workload Assessment
+    # ---------------------------------------------------------
+    print("\n" + "="*60)
+    print("NASA-TLX Workload Assessment")
+    print("="*60)
+    
+    try:
+        tlx_survey = NasaTlxSurvey()
+        tlx_response = tlx_survey.show_survey()
+        
+        if tlx_response:
+            print("\nNASA-TLX Responses:")
+            print(f"  Mental Demand: {tlx_response.mental_demand}/100")
+            print(f"  Physical Demand: {tlx_response.physical_demand}/100")
+            print(f"  Temporal Demand: {tlx_response.temporal_demand}/100")
+            print(f"  Performance: {tlx_response.performance}/100")
+            print(f"  Effort: {tlx_response.effort}/100")
+            print(f"  Frustration: {tlx_response.frustration}/100")
+            print(f"  Overall Workload: {tlx_response.overall_workload:.1f}/100")
+        else:
+            tlx_response = None
+            print("NASA-TLX survey cancelled.")
+    except Exception as e:
+        print(f"Error running NASA-TLX survey: {e}")
+        tlx_response = None
+
+    # ---------------------------------------------------------
+    # NEW: Cognitive Load Analysis with Validation Data Export
+    # ---------------------------------------------------------
+    print("\n" + "="*60)
+    print("Cognitive Load Analysis")
+    print("="*60)
+    
+    try:
+        # Initialize cognitive load calculator
+        calc = CognitiveLoadCalculator(weights_preset='default')
+        
+        # Prepare validation data for export
+        exporter = DataExporter(output_dir="exports")
+        validation_records = []
+        
+        # Process each region's metrics
+        for region_metric in trial_data.get("region_metrics", []):
+            # Get psychological metrics from region
+            metrics = {
+                'fixation_count': region_metric.get('fixation_count', 0),
+                'regression_count': region_metric.get('regression_count', 0),
+                'reading_time_sec': region_metric.get('reading_time_sec', 0.0),
+                'static_complexity': region_metric.get('static_cognitive_complexity', 1),
+            }
+            
+            # Calculate cognitive load
+            num_gaze_samples = len(gaze_points)
+            region_lines = 1  # Approximate for this code region
+            
+            result = calc.calculate(
+                metrics, 
+                num_data_points=max(30, num_gaze_samples),  # Min 30 data points for stability
+                region_lines=region_lines
+            )
+            
+            # Build validation record
+            record = {
+                'timestamp': datetime.now().isoformat(),
+                'user_id': user_id,
+                'session_id': session_num,
+                'code_region': region_metric.get('code_region', 'unknown'),
+                'region_lines': region_lines,
+                'fixation_count': region_metric.get('fixation_count', 0),
+                'fixation_density': region_metric.get('fixation_count', 0) / max(1, region_metric.get('reading_time_sec', 1)),
+                'regression_count': region_metric.get('regression_count', 0),
+                'regression_rate': region_metric.get('regression_count', 0) / max(1, region_metric.get('fixation_count', 1)),
+                'reading_time_sec': region_metric.get('reading_time_sec', 0.0),
+                'mean_fixation_duration_ms': 0 if metrics['fixation_count'] == 0 else (metrics['reading_time_sec'] * 1000) / metrics['fixation_count'],
+                'static_cognitive_complexity': region_metric.get('static_cognitive_complexity', 1),
+                'eye_tracking_cognitive_load_score': result.score,
+                'cognitive_load_confidence': result.confidence,
+                'nasa_tlx_mental_demand': tlx_response.mental_demand if tlx_response else 0,
+                'nasa_tlx_physical_demand': tlx_response.physical_demand if tlx_response else 0,
+                'nasa_tlx_temporal_demand': tlx_response.temporal_demand if tlx_response else 0,
+                'nasa_tlx_performance': tlx_response.performance if tlx_response else 0,
+                'nasa_tlx_effort': tlx_response.effort if tlx_response else 0,
+                'nasa_tlx_frustration': tlx_response.frustration if tlx_response else 0,
+                'nasa_tlx_overall_workload': tlx_response.overall_workload if tlx_response else 0,
+                'comprehension_correct': True,  # Would need actual comprehension test
+                'response_time_ms': int(region_metric.get('reading_time_sec', 0) * 1000),
+                'calibration_accuracy': calib_accuracy,
+                'notes': f"Session {session_num}, Task: {os.path.basename(code_path)}"
+            }
+            
+            validation_records.append(record)
+            
+            # Print cognitive load result
+            print(f"\nRegion: {region_metric.get('code_region', 'unknown')}")
+            print(f"  Cognitive Load Score: {result.score:.1f}/100")
+            print(f"  Confidence: {result.confidence:.1%}")
+            print(f"  Interpretation: {calc.get_interpretation(result.score)}")
+            if result.warnings:
+                print(f"  Warnings: {', '.join(result.warnings)}")
+        
+        # Export validation data
+        if validation_records:
+            csv_path = exporter.export_validation_data(
+                validation_records, 
+                f"validation_export_session_{session_num}_user_{user_id}.csv"
+            )
+            print(f"\n✓ Validation data exported to: {csv_path}")
+        
+    except Exception as e:
+        print(f"Error in cognitive load analysis: {e}")
+        import traceback
+        traceback.print_exc()
 
     if abort_session:
         break
