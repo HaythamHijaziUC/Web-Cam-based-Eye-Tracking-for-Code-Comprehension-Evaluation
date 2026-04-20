@@ -176,7 +176,7 @@ def show_user_selection_screen() -> Optional[Dict[str, Any]]:
             result["is_new_user"] = True
             result["recalibrate"] = False
             dialog.destroy()
-            root.destroy()
+            root.quit()  # Properly exit mainloop
         
         def cancel_new_user():
             """Go back"""
@@ -277,7 +277,7 @@ def show_user_selection_screen() -> Optional[Dict[str, Any]]:
                 result["recalibrate"] = response
             
             dialog.destroy()
-            root.destroy()
+            root.quit()  # Properly exit mainloop
         
         def back():
             """Go back"""
@@ -337,6 +337,11 @@ def show_user_selection_screen() -> Optional[Dict[str, Any]]:
     
     # Run window
     root.mainloop()
+    
+    try:
+        root.destroy()
+    except:
+        pass
     
     # Return result
     if result["user_id"] is None:
