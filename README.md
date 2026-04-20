@@ -177,4 +177,4 @@ for details.
 
 ## Acknowledgements
 
-Developed at in collaboration between Palestine Ahliya University with CISUC, University of Coimbra, Portugal. Supported by the BRAIN research project.
+Developed in collaboration between Palestine Ahliya University and CISUC, University of Coimbra, Portugal. Supported by the BRAIN research project.
