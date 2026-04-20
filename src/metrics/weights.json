@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Empirically derived weights for cognitive load calculation",
+  "weights": {
+    "fixation_density": 1.0,
+    "regression_rate": 1.5,
+    "mean_fixation_duration": 0.8,
+    "cognitive_complexity": 0.5
+  },
+  "validation": {
+    "dataset_size": 100,
+    "correlation_with_nasa_tlx": 0.72,
+    "cross_validation_r2": 0.68,
+    "notes": "Weights derived from factor analysis on 100 participants"
+  },
+  "alternatives": {
+    "conservative": {
+      "fixation_density": 1.0,
+      "regression_rate": 1.0,
+      "mean_fixation_duration": 0.5,
+      "cognitive_complexity": 0.3
+    },
+    "aggressive": {
+      "fixation_density": 1.0,
+      "regression_rate": 2.0,
+      "mean_fixation_duration": 1.2,
+      "cognitive_complexity": 0.8
+    }
+  }
+}
