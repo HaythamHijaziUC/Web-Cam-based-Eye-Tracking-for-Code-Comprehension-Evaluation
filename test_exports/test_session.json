@@ -1,0 +1,33 @@
+{
+  "user_id": "test_user_001",
+  "session_id": 1,
+  "timestamp": "2026-04-20T14:22:28.842778",
+  "trials": [
+    {
+      "region_metrics": [
+        {
+          "timestamp": "2026-04-20T14:22:28.835189",
+          "user_id": "test_user_001",
+          "session_id": 1,
+          "code_region": "function_def [1-15]",
+          "region_lines": 15,
+          "fixation_count": 12,
+          "fixation_density": 0.8,
+          "regression_count": 3,
+          "regression_rate": 0.25,
+          "reading_time_sec": 5.2,
+          "mean_fixation_duration_ms": 433,
+          "static_cognitive_complexity": 5,
+          "eye_tracking_cognitive_load_score": 72.3,
+          "cognitive_load_confidence": 0.95,
+          "nasa_tlx_mental_demand": 75,
+          "nasa_tlx_overall_workload": 68.3,
+          "comprehension_correct": true,
+          "response_time_ms": 4200,
+          "calibration_accuracy": 88.5,
+          "notes": "Test session"
+        }
+      ]
+    }
+  ]
+}

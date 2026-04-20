@@ -99,13 +99,17 @@ def test_nasa_tlx_survey():
     from src.ui.nasa_tlx_survey import NasaTlxScore
     
     # Create synthetic response
+    scores = [75, 10, 40, 85, 70, 30]
+    overall = sum(scores) / len(scores)
+    
     tlx_response = NasaTlxScore(
         mental_demand=75,
         physical_demand=10,
         temporal_demand=40,
         performance=85,
         effort=70,
-        frustration=30
+        frustration=30,
+        overall_workload=overall
     )
     
     print(f"Mental Demand: {tlx_response.mental_demand}/100")
